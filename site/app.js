@@ -157,18 +157,26 @@ function renderAgentResult(result) {
     ? hits.map((h) => `<li>${esc(h.docTitle)} &gt; ${esc(h.heading)} <span class="muted">(relevance ${h.score.toFixed(2)})</span></li>`).join("")
     : "<li class=\"muted\">Retrieval did not run.</li>";
 
+  // Technical detail stays one click away: closed by default, and kept closed or open across runs.
   $("#agent-result").innerHTML = `${body}
-    <h4>Under the hood</h4>
-    <div class="meta">
-      ${classification ? `<span class="tag">category: ${esc(classification.category)}</span>` : ""}
-      <span class="tag">model calls: ${modelCalls}</span>
-      <span class="tag">grounding threshold: ${AGENT_POLICY.minKbScore}</span>
-    </div>
-    <h4>Retrieved</h4>
-    <ul class="trace">${hitList}</ul>
-    <h4>Trace</h4>
-    <ol class="trace">${trace.map((s) => `<li><b>${esc(s.step)}</b> ${esc(s.detail)}</li>`).join("")}</ol>`;
+    <details class="under-hood"${underHoodOpen ? " open" : ""}>
+      <summary>How the agent decided</summary>
+      <div class="meta">
+        ${classification ? `<span class="tag">category: ${esc(classification.category)}</span>` : ""}
+        <span class="tag">model calls: ${modelCalls}</span>
+        <span class="tag">grounding threshold: ${AGENT_POLICY.minKbScore}</span>
+      </div>
+      <h4>Retrieved</h4>
+      <ul class="trace">${hitList}</ul>
+      <h4>Trace</h4>
+      <ol class="trace">${trace.map((s) => `<li><b>${esc(s.step)}</b> ${esc(s.detail)}</li>`).join("")}</ol>
+    </details>`;
+  $("#agent-result .under-hood").addEventListener("toggle", (event) => {
+    underHoodOpen = event.target.open;
+  });
 }
+
+let underHoodOpen = false;
 
 function fillTicket(example) {
   const form = $("#ticket-form");
