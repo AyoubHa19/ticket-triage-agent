@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ticket Agent Demo</title>
+  <meta name="description" content="Try a property-management ticket agent in the browser: escalation policy, knowledge-base retrieval, evals and an LLM router. The same code the tests run.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232f5bd3'/><path d='M8 11h16M8 16h11M8 21h7' stroke='white' stroke-width='2.6' stroke-linecap='round'/></svg>">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <p class="eyebrow">Ticket triage agent · live demo</p>
+      <h1>A ticket agent that knows when to hand over</h1>
+      <p class="lede">
+        Three small projects on the hard parts of a production agent: <strong>when to escalate to a human</strong>,
+        <strong>grounding answers in a knowledge base</strong>, and <strong>measuring and running the LLM layer reliably</strong>.
+        Everything below runs in your browser, using the same code the 140 tests run.
+      </p>
+      <p class="repo-link" id="repo-link" hidden><a href="#">Source code and READMEs on GitHub →</a></p>
+      <nav class="tabs" role="tablist" aria-label="Demo sections">
+        <button role="tab" id="tab-agent" aria-controls="panel-agent" aria-selected="true">Inbox agent</button>
+        <button role="tab" id="tab-search" aria-controls="panel-search" aria-selected="false">Knowledge search</button>
+        <button role="tab" id="tab-evals" aria-controls="panel-evals" aria-selected="false">Evals</button>
+        <button role="tab" id="tab-router" aria-controls="panel-router" aria-selected="false">LLM router</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <p class="loading" id="loading">Loading the knowledge base…</p>
+
+    <!-- Inbox agent -->
+    <section role="tabpanel" id="panel-agent" aria-labelledby="tab-agent">
+      <div class="intro">
+        <h2>Inbox agent</h2>
+        <p>
+          Write a ticket the way a tenant or owner would. The agent either <strong>replies automatically, grounded in the
+          knowledge base</strong>, or <strong>hands the ticket to a person and says why</strong>. Safety, legal and
+          prompt-injection checks run on the raw text, so the model can never talk the agent out of an escalation.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <form class="card" id="ticket-form">
+          <div class="examples" aria-label="Example tickets">
+            <span class="examples-label">Try:</span>
+            <div class="chips" id="ticket-examples"></div>
+          </div>
+          <label>Subject
+            <input name="subject" required maxlength="200" autocomplete="off">
+          </label>
+          <label>Message
+            <textarea name="body" required rows="5" maxlength="2000"></textarea>
+          </label>
+          <div class="row">
+            <label>Sender
+              <select name="senderRole">
+                <option value="tenant">Tenant</option>
+                <option value="owner">Owner</option>
+                <option value="vendor">Vendor</option>
+                <option value="unknown">Unknown</option>
+              </select>
+            </label>
+            <label>Earlier messages about this
+              <input name="previousContacts" type="number" min="0" max="20" value="0">
+            </label>
+          </div>
+          <button class="primary" type="submit">Run the agent</button>
+          <p class="fine">
+            No LLM runs in the browser. A stand-in classifies with the keyword baseline from <code>llm-evals</code> and
+            drafts by quoting the best knowledge-base excerpt. The pipeline, the policy and the retrieval are the real code.
+          </p>
+        </form>
+
+        <div class="card result" id="agent-result" aria-live="polite">
+          <p class="placeholder">Pick an example or write a ticket, then run the agent.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Knowledge search -->
+    <section role="tabpanel" id="panel-search" aria-labelledby="tab-search" hidden>
+      <div class="intro">
+        <h2>Knowledge search</h2>
+        <p>
+          The same question through three retrievers: <strong>BM25</strong> (word matching), <strong>vector</strong>
+          (character n-gram embeddings, so typos and compounds still match) and <strong>hybrid</strong> (both, merged by rank
+          fusion). The agent tool also decides whether the best hit is good enough to answer from at all.
+        </p>
+      </div>
+
+      <form class="card search-bar" id="search-form">
+        <input name="query" required maxlength="500" autocomplete="off" placeholder="Ask the knowledge base…" aria-label="Question">
+        <button class="primary" type="submit">Search</button>
+        <div class="examples">
+          <span class="examples-label">Try:</span>
+          <div class="chips" id="search-examples"></div>
+        </div>
+      </form>
+
+      <div id="search-verdict" aria-live="polite"></div>
+      <div class="grid-3" id="search-results"></div>
+
+      <details class="card docs">
+        <summary>Browse the knowledge base (<span id="doc-count"></span> documents)</summary>
+        <div id="doc-list"></div>
+      </details>
+    </section>
+
+    <!-- Evals -->
+    <section role="tabpanel" id="panel-evals" aria-labelledby="tab-evals" hidden>
+      <div class="intro">
+        <h2>Evals</h2>
+        <p>
+          Hand-labelled data, scored live in your browser. The numbers are regression baselines on small sets, not
+          benchmarks, and the failures are shown rather than tuned away.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>Escalation: does the right ticket reach a human?</h3>
+            <p class="muted">37 tickets, each labelled "needs a human" or "routine". System: keyword rules plus the deterministic policy, no LLM.</p>
+          </div>
+        </div>
+        <div class="stats" id="escalation-stats"></div>
+        <div class="table-scroll">
+          <table class="data" id="escalation-table">
+            <thead><tr><th>Ticket</th><th>Label</th><th>Agent</th><th></th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Retrieval: is the right section ranked first?</h3>
+        <p class="muted">27 questions the knowledge base answers, and 7 it cannot (those should be refused).</p>
+        <div class="table-scroll">
+          <table class="data" id="retrieval-table">
+            <thead><tr><th>Retriever</th><th>Hit@1</th><th>Hit@3</th><th>MRR@5</th><th>Relevance AUC</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="retrieval-misses"></div>
+      </div>
+    </section>
+
+    <!-- Router -->
+    <section role="tabpanel" id="panel-router" aria-labelledby="tab-router" hidden>
+      <div class="intro">
+        <h2>LLM router</h2>
+        <p>
+          Providers fail: rate limits, overloads, timeouts, bad keys. Choose how two simulated providers behave and watch
+          the real router retry with backoff, fall back, and open a circuit breaker after repeated failures.
+        </p>
+      </div>
+
+      <div class="grid-2 router">
+        <div class="card">
+          <label>Primary provider
+            <select id="primary-behaviour"></select>
+          </label>
+          <label>Fallback provider
+            <select id="fallback-behaviour"></select>
+          </label>
+          <div class="row buttons">
+            <button class="primary" id="send-one" type="button">Send 1 request</button>
+            <button id="send-five" type="button">Send 5 requests</button>
+            <button id="reset-router" type="button" class="ghost">Reset</button>
+          </div>
+          <p class="fine">
+            Settings for the demo: 3 attempts per provider, backoff from 300 ms with jitter, 1.5 s timeout, breaker opens after
+            2 exhausted requests and stays open for 10 s. Providers are simulated; the router is the real code.
+          </p>
+          <div id="router-usage"></div>
+        </div>
+        <div class="card log-card">
+          <div class="card-head"><h3>Event log</h3></div>
+          <ol class="log" id="router-log" aria-live="polite"><li class="placeholder">No requests yet.</li></ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Built with TypeScript and no runtime dependencies. Sample data is invented and illustrative.</p>
+  </footer>
+</body>
+</html>

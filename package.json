@@ -1,0 +1,24 @@
+{
+  "name": "ticket-triage-agent",
+  "private": true,
+  "type": "module",
+  "description": "Three small, tested projects on production-agent concerns: ticket triage + escalation, LLM routing + evals, and knowledge-base retrieval.",
+  "workspaces": [
+    "inbox-agent",
+    "llm-evals",
+    "kb-search"
+  ],
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build:site": "node scripts/build-site.ts",
+    "serve:site": "node scripts/serve-site.ts"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  }
+}
